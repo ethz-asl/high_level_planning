@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>highlevel_planning_ros</name>
+  <version>0.0.0</version>
+  <description>The highlevel_planning package</description>
+  <maintainer email="anon@todo.todo">anon</maintainer>
+  <author>anon</author>
+  <license>TODO</license>
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>franka_description</depend>
+  <depend>trac_ik_python</depend>
+  <depend>kdl_parser_py</depend>
+  <depend>python_orocos_kdl</depend>
+  <!-- <depend>robot_control</depend> -->
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+  </export>
+</package>

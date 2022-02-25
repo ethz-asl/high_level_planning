@@ -1,0 +1,106 @@
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="cupboard_drawers">
+
+    <xacro:property name="wall_thickness" value="0.03"/>
+    <xacro:property name="total_height" value="0.7"/>
+    <xacro:property name="total_width" value="0.9"/>
+    <xacro:property name="total_depth" value="0.6"/>
+    <xacro:property name="num_drawers" value="4"/>
+    <xacro:property name="drawer_spacing" value="0.005"/>
+
+    <material name="white">
+        <color rgba="1 1 1 1"/>
+    </material>
+    <material name="dark_brown">
+        <color rgba="0.4 0.2 0.0 1"/>
+    </material>
+    <material name="light_brown">
+        <color rgba="0.6 0.29 0.0 1"/>
+    </material>
+    <material name="silver">
+        <color rgba="0.87 0.87 0.87 0.8"/>
+    </material>
+
+    <xacro:macro name="corpus" params="color">
+        <link name="corpus_link">
+            <contact>
+                <lateral_friction value="1.0"/>
+            </contact>
+            <inertial>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <mass value="30"/>
+                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+            </inertial>
+            <collision>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <mesh filename="corpus.stl"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <mesh filename="corpus.stl"/>
+                </geometry>
+                <material name="dark_brown"/>
+            </visual>
+        </link>
+    </xacro:macro>
+
+
+    <xacro:macro name="drawer" params="index">
+        <link name="drawer${index}_link">
+            <contact>
+                <lateral_friction value="1.0"/>
+            </contact>
+            <inertial>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <mass value="30"/>
+                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+            </inertial>
+            <collision>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <mesh filename="drawer.stl"/>
+                </geometry>
+            </collision>
+            <visual>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <geometry>
+                    <mesh filename="drawer.stl"/>
+                </geometry>
+                <material name="light_brown"/>
+            </visual>
+        </link>
+        <joint name="drawer_joint${index}" type="prismatic">
+            <origin xyz="0 0 ${(index-1)*(0.238+0.005)+0.005}" rpy="0 0 0"/>
+            <parent link="base_link"/>
+            <child link="drawer${index}_link"/>
+            <axis xyz="0 -1 0"/>
+            <dynamics damping="8.0"/>
+            <limit lower="0.0" upper="0.65" effort="10.0" velocity="1.5"/>
+        </joint>
+    </xacro:macro>
+
+    <link name="base_link">
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.0"/>
+            <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+        </inertial>
+    </link>
+
+    <xacro:corpus color="dark_brown"/>
+    <joint name="frame_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="corpus_link"/>
+    </joint>
+
+    <xacro:drawer index="1"/>
+    <xacro:drawer index="2"/>
+    <xacro:drawer index="3"/>
+    <xacro:drawer index="4"/>
+
+</robot>
+

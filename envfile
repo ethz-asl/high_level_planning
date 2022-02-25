@@ -1,0 +1,4 @@
+source /opt/ros/noetic/setup.bash
+source /catkin_ws/devel/setup.bash
+cd /catkin_ws/src/highlevel_planning_ros
+echo "Sourced envfile"

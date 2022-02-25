@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="container_no_lid">
+    <xacro:include filename="$(cwd)/common.xacro"/>
+    <xacro:property name="total_width" value="1.2"/>
+    <xacro:property name="total_height" value="1.4"/>
+    <xacro:property name="total_depth" value="0.25"/>
+    <xacro:property name="wall_thickness" value="0.03"/>
+    <xacro:property name="num_boards" value="6"/>
+
+    <link name="base_link">
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="0.0"/>
+            <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+        </inertial>
+    </link>
+
+    <xacro:plane prefix="left_wall" width="${total_depth}" depth="${total_height}" thickness="${wall_thickness}" color="light_brown"/>
+    <joint name="left_wall_joint" type="fixed">
+        <origin xyz="0 ${-total_width/2} ${total_height/2}" rpy="${pi/2} 0 0"/>
+        <parent link="base_link"/>
+        <child link="left_wall_plane"/>
+    </joint>
+
+    <xacro:plane prefix="right_wall" width="${total_depth}" depth="${total_height}" thickness="${wall_thickness}" color="light_brown"/>
+    <joint name="right_wall_joint" type="fixed">
+        <origin xyz="0 ${total_width/2} ${total_height/2}" rpy="${pi/2} 0 0"/>
+        <parent link="base_link"/>
+        <child link="right_wall_plane"/>
+    </joint>
+
+    <xacro:macro name="board" params="index">
+        <xacro:plane prefix="board${index}" width="${total_depth}" depth="${total_width-wall_thickness}" thickness="${wall_thickness}" color="light_brown"/>
+        <xacro:property name="board_dist" value="${(total_height-wall_thickness)/(num_boards-1)}"/>
+        <joint name="board${index}_joint" type="fixed">
+            <origin xyz="0 0 ${index * board_dist + wall_thickness/2}" rpy="0 0 0"/>
+            <parent link="base_link"/>
+            <child link="board${index}_plane"/>
+        </joint>
+    </xacro:macro>
+    <xacro:board index="0"/>
+    <xacro:board index="1"/>
+    <xacro:board index="2"/>
+    <xacro:board index="3"/>
+    <xacro:board index="4"/>
+    <xacro:board index="5"/>
+<!--    <xacro:board index="6"/>-->
+
+</robot>

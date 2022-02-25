@@ -1,0 +1,14 @@
+pybullet==3.2.1
+numpy
+scipy
+urdf-parser-py
+pandas
+argparse
+PyYAML
+matplotlib
+tqdm
+pytest
+networkx
+seaborn
+icecream
+pydot
