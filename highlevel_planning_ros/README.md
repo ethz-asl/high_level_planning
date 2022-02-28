@@ -52,7 +52,7 @@ User inputs such as goal and (optionally) demonstration can be configured in `co
 
 Running the code will create the directory `~/Data/highlevel_planning`. Make sure that there is nothing there yet, to avoid that files are overwritten.
 
-To run the exploration algorithm, issues the following command:
+To run the exploration algorithm, issue the following command:
 
 ```bash
 python3 scripts/run_auto.py
