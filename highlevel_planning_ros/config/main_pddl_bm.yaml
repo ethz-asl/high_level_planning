@@ -1,0 +1,23 @@
+debug: false
+domain_name: 'rover'
+user_input:
+  goals: '[("communicated_soil_data", True, ("waypoint5",))]'
+  demo_sequence: '[]'
+  demo_parameters: '[]'
+  init_domain: 'domain_w.hddl'
+  init_problem: 'p02.hddl'
+explorer:
+  search_budget_sec: 900
+  time_proportion_demo: 0.8
+  time_proportion_prepend: 0.8
+  time_proportion_generalize: 0.8
+  alternating_sequence_length: false
+  min_sequence_length: 4
+  max_sequence_length: 4
+  max_failed_samples: 50
+  action_denylist: []
+  predicate_precondition_allowlist: []
+mcts:
+  search_budget_sec: 900
+  max_depth: 16
+  avoid_double_nav: false

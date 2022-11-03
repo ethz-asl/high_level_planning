@@ -1,0 +1,3 @@
+[submodule "submodules/ipc2020-domains"]
+	path = submodules/ipc2020-domains
+	url = git@github.com:panda-planner-dev/ipc2020-domains.git
