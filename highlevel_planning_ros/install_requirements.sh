@@ -10,4 +10,5 @@ sudo apt-get install -y ros-$ROS_DISTRO-urdf \
     ros-$ROS_DISTRO-xacro \
     ros-$ROS_DISTRO-franka-ros \
     ros-$ROS_DISTRO-trac-ik \
-    ros-$ROS_DISTRO-kdl-parser-py
+    ros-$ROS_DISTRO-kdl-parser-py \
+    git

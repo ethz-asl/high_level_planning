@@ -1,11 +1,11 @@
 debug: false
 domain_name: 'rover'
 user_input:
-  goals: '[("communicated_soil_data", True, ("waypoint5",))]'
+  goals: '[("communicated_soil_data", True, ("waypoint0",))]'
   demo_sequence: '[]'
   demo_parameters: '[]'
-  init_domain: 'domain_w.hddl'
-  init_problem: 'p02.hddl'
+  init_domain: 'domain_u.hddl'
+  init_problem: 'p01.hddl'
 explorer:
   search_budget_sec: 900
   time_proportion_demo: 0.8

@@ -32,7 +32,7 @@ PATHS = {
     "": "",
     "data_dir": os.path.join(os.path.expanduser("~"), "Data", "highlevel_planning"),
     "src_root_dir": SRCROOT,
-    "asset_dir": os.path.join(SRCROOT, "models"),
+    "asset_dir": os.path.join(SRCROOT, "data", "models"),
     "bin_dir": os.path.join(SRCROOT, "bin"),
 }
 

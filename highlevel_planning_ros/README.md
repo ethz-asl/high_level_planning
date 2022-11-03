@@ -48,27 +48,20 @@ cd highlevel_planning_ros/models
 
 To run any command, make sure that your ROS distribution, the ROS workspace, as well as (if applicable) the virtual environment are sourced.
 
-User inputs such as goal and (optionally) demonstration can be configured in `config/main.xml`.
+User inputs such as goal and (optionally) demonstration can be configured in `config/main.xml` (for the _rearrangement task domain_) or `config/main_pddl_bm.yaml` (for the _PDDL benchmark domain_).
 
 Running the code will create the directory `~/Data/highlevel_planning`. Make sure that there is nothing there yet, to avoid that files are overwritten.
 
-To run the exploration algorithm, issue the following command:
+The following table shows the commands required to run our algorithm or the MCTS baseline on the _PDDL benchmark domain_ or the _rearrangement task domain_ respectively:
 
-```bash
-python3 scripts/run_auto.py
-```
+| Domain                    | Algorithm | Command                                      |
+|---------------------------|-----------|----------------------------------------------|
+| PDDL benchmark domain     | ours      | `python3 scripts/run_pddl_benchmark_ours.py` |
+| PDDL benchmark domain     | MCTS      | `python3 scripts/run_pddl_benchmark_mcts.py` |
+| Rearrangement task domain | ours      | `python3 scripts/run_auto.py`                |
+| Rearrangement task domain | MCTS      | `python3 scripts/run_mcts.py`                |
 
-Help on commandline arguments is available by calling
-
-```bash
-python3 scripts/run_auto.py --help
-```
-
-To run the MCTS baseline, call
-
-```bash
-python3 scripts/run_mcts.py
-```
+For command line options, pass `--help` to any of the commands above.
 
 ## Documentation
 

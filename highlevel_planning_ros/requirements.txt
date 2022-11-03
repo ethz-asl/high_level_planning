@@ -12,3 +12,4 @@ networkx
 seaborn==0.12.1
 icecream
 pydot
+git+https://github.com/pucrs-automated-planning/pddl-parser@e7f68b#egg=pddl_parser

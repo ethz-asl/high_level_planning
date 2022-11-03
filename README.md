@@ -28,8 +28,12 @@ docker run -it --rm hlp_docker
 
 You should end up in a bash shell within the container. From here, our exploration algorithm can be run (only in `direct` mode since no GUI is available from within the container):
 
-```bash
-python3 scripts/run_auto.py -m direct
-```
+| Domain                    | Algorithm | Command                                      |
+|---------------------------|-----------|----------------------------------------------|
+| PDDL benchmark domain     | ours      | `python3 scripts/run_pddl_benchmark_ours.py` |
+| PDDL benchmark domain     | MCTS      | `python3 scripts/run_pddl_benchmark_mcts.py` |
+| Rearrangement task domain | ours      | `python3 scripts/run_auto.py -m direct`      |
+| Rearrangement task domain | MCTS      | `python3 scripts/run_mcts.py -m direct`      |
+
 
 More details on changing configurations, etc. can be found in [the other readme](./highlevel_planning_ros/README.md#run).

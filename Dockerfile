@@ -4,8 +4,8 @@ RUN apt-get update && apt-get upgrade -y
 
 # Satisfy requirements
 COPY highlevel_planning_ros/install_requirements.sh /install_requirements.sh
-COPY highlevel_planning_ros/requirements.txt /requirements.txt
 RUN /install_requirements.sh
+COPY highlevel_planning_ros/requirements.txt /requirements.txt
 RUN pip install -r requirements.txt
 
 # Build symbolic planner
@@ -14,6 +14,9 @@ COPY Metric-FF-v2.1 /build/metric-ff
 WORKDIR /build/metric-ff
 RUN apt-get install -y flex bison
 RUN make
+
+# Set up PDDL benchmark domain
+COPY submodules/ipc2020-domains/total-order/Rover-GTOHP /root/ipc2020-domains/Rover-GTOHP
 
 # Copy code
 RUN mkdir -p /catkin_ws/src
@@ -26,7 +29,7 @@ WORKDIR /catkin_ws
 RUN . /opt/ros/noetic/setup.sh && catkin init
 RUN . /opt/ros/noetic/setup.sh && catkin config -DCMAKE_BUILD_TYPE=Release
 RUN . /opt/ros/noetic/setup.sh && catkin build highlevel_planning_ros
-RUN . /opt/ros/noetic/setup.sh && cd src/highlevel_planning_ros/models && ./parse_xacros.bash
+RUN . /opt/ros/noetic/setup.sh && cd src/highlevel_planning_ros/data/models && ./parse_xacros.bash
 
 # Entrypoint
 COPY envfile /root/.bashrc
