@@ -29,3 +29,4 @@ mcts:
   search_budget_sec: 900
   max_depth: 16
   closeby_objects_distance_threshold: 0.1
+  avoid_double_nav: true

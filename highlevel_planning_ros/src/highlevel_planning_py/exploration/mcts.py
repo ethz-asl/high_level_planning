@@ -377,6 +377,7 @@ class HLPTreeNode:
                 parent=self,
                 own_action=sequence_tuple,
                 explorer=explorer,
+                virtual_objects=self.virtual_objects,
             )
             self.children.append(new_child)
             self.child_actions.append(sequence_tuple)

@@ -13,6 +13,7 @@ from highlevel_planning_py.sim.scene_planning_2 import ScenePlanning2
 from highlevel_planning_py.skills.navigate import SkillNavigate
 from highlevel_planning_py.skills.grasping import SkillGrasping
 from highlevel_planning_py.skills.placing import SkillPlacing
+from highlevel_planning_py.execution.es_sequential_execution import SequentialExecution
 
 # Learning
 from highlevel_planning_py.exploration.explorer import Explorer
@@ -28,12 +29,13 @@ from highlevel_planning_py.tools import util_pybullet
 
 from highlevel_planning_py.exploration.exploration_tools import get_items_closeby
 
-mpl.use("TkAgg")
+# mpl.use("TkAgg")
 
 # ----------------------------------------------------------------------
 
 SRCROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATHS = {
+    "": "",
     "data_dir": os.path.join(os.path.expanduser("~"), "Data", "highlevel_planning"),
     "src_root_dir": SRCROOT,
     "asset_dir": os.path.join(SRCROOT, "models"),
@@ -81,23 +83,6 @@ def main():
     # -----------------------------------
 
     # Set goal
-    # goals = [("in-hand", True, ("duck", "robot1"))]
-    # goals = [("at", True, ("container1", "robot1"))]
-    # goals = [("at", True, ("cupboard", "robot1"))]
-    # goals = [("on", True, ("cupboard", "cube1"))]
-    # goals = [("on", True, ("cupboard", "duck"))]
-    # goals = [
-    #     ("on", True, ("cupboard", "cube1")),
-    #     ("at", True, ("container1", "robot1")),
-    # ]
-    # goals = [("on", True, ("container2", "cube1"))]
-    # goals = [("on", True, ("container2", "lego"))]
-    # goals = [("inside", True, ("container2", "cube1"))]
-    # goals = [("inside", True, ("container1", "cube1"))]
-    # goals = [("inside", True, ("container1", "lego"))]
-    # goals = [("inside", True, ("container1", "duck"))]
-    # goals = [("inside", True, ("shelf", "tall_box"))]
-    # goals = [("inside", True, ("container2", "cube2"))]
     goals = ast.literal_eval(cfg.getparam(["user_input", "goals"]))
 
     # -----------------------------------
@@ -115,8 +100,14 @@ def main():
     # PDDL extender
     pddl_ex = PDDLExtender(kb, preds)
 
+    get_execution_system = lambda seq, params: SequentialExecution(
+        skill_set, seq, params, kb
+    )
+
     # Set up exploration
-    xplorer = Explorer(skill_set, robot, scene.objects, pddl_ex, kb, cfg, world)
+    xplorer = Explorer(
+        skill_set, robot, scene.objects, pddl_ex, kb, cfg, world, get_execution_system
+    )
     goal_objects = xplorer._get_items_goal()
     closeby_objects = get_items_closeby(
         goal_objects,
@@ -137,6 +128,7 @@ def main():
         mcts_state,
         action_list,
         graph,
+        avoid_double_nav=cfg.getparam(["mcts", "avoid_double_nav"]),
         relevant_objects=relevant_objects,
         explorer=xplorer,
         virtual_objects=["origin", "grasp0", "grasp1"],
