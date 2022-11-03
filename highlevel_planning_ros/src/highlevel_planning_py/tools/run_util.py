@@ -1,96 +1,9 @@
-import argparse
-import os
-import pybullet as p
-import pickle
 import numpy as np
-
-from highlevel_planning_py.sim.world import WorldPybullet
 
 from highlevel_planning_py.sim.robot_arm import RobotArmPybullet
 from highlevel_planning_py.knowledge.knowledge_base import KnowledgeBase
 from highlevel_planning_py.skills import pddl_descriptions
 from highlevel_planning_py.knowledge.predicates import Predicates
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-r",
-        "--reuse-objects",
-        action="store_true",
-        help="if given, the simulation does not reload objects. Objects must already be present.",
-    )
-    parser.add_argument(
-        "-s",
-        "--sleep",
-        action="store_true",
-        help="if given, the simulation will sleep for each update step, to mimic real time execution.",
-    )
-    parser.add_argument(
-        "-m",
-        "--method",
-        action="store",
-        help="determines in which mode to connect to pybullet. Can be 'gui', 'direct' or 'shared'.",
-        default="gui",
-    )
-    parser.add_argument(
-        "-n", "--noninteractive", action="store_true", help="skip user prompts."
-    )
-    parser.add_argument(
-        "--no-seed",
-        action="store_true",
-        help="if given, RNGs are not initialized with a random seed.",
-    )
-    parser.add_argument(
-        "-d",
-        "--domain-file",
-        action="store",
-        default="_domain.pkl",
-        help="The file name of the domain file loaded/stored by the knowledge base.",
-    )
-    parser.add_argument(
-        "-c",
-        "--config-file-path",
-        action="store",
-        help="Absolute path to the config file to use.",
-        default="",
-    )
-    args = parser.parse_args()
-    return args
-
-
-def save_pybullet_sim(args, savedir, scene, robot=None):
-    robot_mdl = robot.model if robot is not None else None
-    if not args.reuse_objects:
-        if not os.path.isdir(savedir):
-            os.makedirs(savedir)
-        with open(os.path.join(savedir, "objects.pkl"), "wb") as output:
-            pickle.dump((scene.objects, robot_mdl), output)
-        p.saveBullet(os.path.join(savedir, "state.bullet"))
-
-
-def restore_pybullet_sim(savedir, args):
-    objects = None
-    robot_mdl = None
-    if args.reuse_objects:
-        with open(os.path.join(savedir, "objects.pkl"), "rb") as pkl_file:
-            objects, robot_mdl = pickle.load(pkl_file)
-    return objects, robot_mdl
-
-
-def setup_pybullet_world(scene_object, assets_dir, args, savedir=None, objects=None):
-    # Create world
-    world = WorldPybullet(
-        style=args.method,
-        sleep=args.sleep,
-        load_objects=not args.reuse_objects,
-        savedir=savedir,
-    )
-    p.setAdditionalSearchPath(assets_dir, physicsClientId=world.client_id)
-
-    scene = scene_object(world, assets_dir, restored_objects=objects)
-
-    return scene, world
 
 
 def setup_robot(world, cfg, asset_dir, robot_mdl):

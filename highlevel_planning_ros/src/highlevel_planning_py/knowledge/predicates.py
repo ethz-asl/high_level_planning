@@ -29,7 +29,7 @@ class PredicatesBase:
         )
 
         # Check if supported object is within footprint of supporting one (xy-plane).
-        # Currently this is based on the position of the supported object. Need to see whether this makes sense.
+        # Currently, this is based on the position of the supported object. Need to see whether this makes sense.
         within = np.all(
             np.greater_equal(pos_supported[:2], lower_supporting[:2])
         ) and np.all(np.less_equal(pos_supported[:2], upper_supporting[:2]))

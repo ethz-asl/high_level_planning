@@ -149,7 +149,9 @@ class PDDLExtender(object):
                         new_type = (
                             f"{original_types[0]}-{pred_param_value}-{time_string}"
                         )
-                        new_description["params"].append([pred_param_value, new_type])
+                        new_description["params"].append(
+                            [pred_param_value, new_type]
+                        )
                         self.knowledge_base.add_type(new_type, original_types[0])
                         self.knowledge_base.add_object(pred_param_value, new_type)
                         parameters[pred_param_value] = pred_param_value
@@ -233,6 +235,9 @@ class PDDLExtender(object):
                 ].add(param[2])
 
     def _remove_parameterization(self, param_list, action_name):
+        if action_name not in self.knowledge_base.parameterizations:
+            # Nothing to remove
+            return
         object_params = list()
         for param in param_list:
             if param[1] != "position":

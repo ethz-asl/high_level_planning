@@ -3,21 +3,15 @@ from highlevel_planning_py.tools.util import SkillExecutionError
 from highlevel_planning_py.exploration.logic_tools import parametrize_predicate
 
 
-def execute_plan_sequentially(
-    sequence, parameters, skill_set, knowledge_base, verbose=False
-):
-    if len(sequence) == 0:
-        print("Nothing to do.")
-        return True
-    es = SequentialExecution(skill_set, sequence, parameters, knowledge_base)
-    es.setup()
+def execute_plan_sequentially(execution_system, verbose=False):
+    execution_system.setup()
     index = 1
     while True:
         if verbose:
             print("------------- Iteration {} ---------------".format(index))
-            es.print_status()
+            execution_system.print_status()
             index += 1
-        success, plan_finished, msgs = es.step()
+        success, plan_finished, msgs = execution_system.step()
         if not success and verbose:
             print("Error messages:")
             for msg in msgs:
@@ -27,21 +21,49 @@ def execute_plan_sequentially(
     return success
 
 
-class SequentialExecution(ExecutionSystem):
-    def __init__(self, skill_set, sequence, parameters, knowledge_base):
-        self.ticking = False
-
-        self.skill_set_ = skill_set
+class SequentialExecutionBase(ExecutionSystem):
+    def __init__(self, sequence, parameters):
         self.sequence = sequence
         self.parameters = parameters
-
-        self.knowledge_base = knowledge_base
 
         self.current_idx_ = 0
         if len(sequence) == 0:
             self.finished_plan = True
         else:
             self.finished_plan = False
+
+    def step(self, index=None):
+        idx = self.current_idx_ if index is None else index
+
+        success = True
+        msgs = list()
+        if not self.finished_plan:
+            action_name = self.sequence[idx]
+            action_name = action_name.split("___")[0]
+            action_parameters = self.parameters[idx]
+            success, msgs = self.execute_action(action_name, action_parameters)
+
+            if success and index is None:
+                self.current_idx_ += 1
+                if self.current_idx_ == len(self.sequence):
+                    self.finished_plan = True
+        return success, self.finished_plan, msgs
+
+    def print_status(self):
+        if not self.finished_plan:
+            print("Plan item up next: " + self.sequence[self.current_idx_])
+        else:
+            print("Finished plan")
+
+    def execute_action(self, action_name, action_parameters):
+        raise NotImplementedError
+
+
+class SequentialExecution(SequentialExecutionBase):
+    def __init__(self, skill_set, sequence, parameters, knowledge_base):
+        super().__init__(sequence, parameters)
+        self.skill_set_ = skill_set
+        self.knowledge_base = knowledge_base
 
         # Define ignore effects
         self.ignore_effects = {
@@ -55,25 +77,8 @@ class SequentialExecution(ExecutionSystem):
             ],
         }
 
-    def step(self, index=None):
-        idx = self.current_idx_ if index is None else index
-
-        success = True
-        msgs = []
-        if not self.finished_plan:
-            action_name = self.sequence[idx]
-            action_name = action_name.split("_")[0]
-            action_parameters = self.parameters[idx]
-            success, msgs = self.execute_action(action_name, action_parameters)
-
-            if success and index is None:
-                self.current_idx_ += 1
-                if self.current_idx_ == len(self.sequence):
-                    self.finished_plan = True
-        return success, self.finished_plan, msgs
-
     def execute_action(self, action_name, action_parameters):
-        msgs = []
+        msgs = list()
         success = True
         if action_name in self.knowledge_base.meta_actions:
             expanded = self.knowledge_base.expand_step(action_name, action_parameters)
@@ -145,9 +150,3 @@ class SequentialExecution(ExecutionSystem):
                 )
 
         return success, msgs
-
-    def print_status(self):
-        if not self.finished_plan:
-            print("Plan item up next: " + self.sequence[self.current_idx_])
-        else:
-            print("Finished plan")

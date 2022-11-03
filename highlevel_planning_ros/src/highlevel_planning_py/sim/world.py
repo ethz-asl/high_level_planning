@@ -4,9 +4,11 @@ import pybullet_data
 import numpy as np
 import time
 from math import ceil
-import atexit
+from matplotlib import pyplot as plt
 
 # from dishwasher_challenge.utils import add_mesh_object
+
+from highlevel_planning_py.tools.util import capture_image_pybullet
 
 
 class World(object):
@@ -55,44 +57,86 @@ class _Model:
         self.name = ""
         self.link_name_to_index = dict()
 
-    def load(self, path, position, orientation, scale):
+    def load(self, path, position, orientation, scale, merge_fixed_links, force_fixed):
         model_path = os.path.expanduser(path)
-        ending = model_path.split(".")[-1]
-        if ending == "urdf":
-            self.uid = pb.loadURDF(
-                model_path,
-                position,
-                orientation,
-                globalScaling=scale,
+        force_fixed_considered = False
+        if "ycb" in model_path:
+            visual_filename = os.path.join(model_path, "textured_simple.obj")
+            collision_filename = os.path.join(model_path, "textured_simple_vhacd.obj")
+            collision_id = pb.createCollisionShape(
+                pb.GEOM_MESH,
+                fileName=collision_filename,
+                meshScale=(scale,) * 3,
                 physicsClientId=self._physics_client,
             )
-        elif ending == "sdf":
-            tmp = pb.loadSDF(
-                sdfFileName=model_path,
-                globalScaling=scale,
+            visual_id = pb.createVisualShape(
+                pb.GEOM_MESH,
+                fileName=visual_filename,
+                meshScale=(scale,) * 3,
                 physicsClientId=self._physics_client,
             )
-            assert len(tmp) == 1
-            self.uid = tmp[0]
-            pb.resetBasePositionAndOrientation(
-                self.uid,
-                posObj=position,
-                ornObj=orientation,
+            self.uid = pb.createMultiBody(
+                baseCollisionShapeIndex=collision_id,
+                baseVisualShapeIndex=visual_id,
+                basePosition=position,
+                baseOrientation=orientation,
+                baseMass=0.1,
                 physicsClientId=self._physics_client,
             )
         else:
-            self.uid = add_mesh_object(
-                model_path, position, orientation, self._physics_client
-            )
+            ending = model_path.split(".")[-1]
+            if ending == "urdf":
+                flags = 0
+                if merge_fixed_links:
+                    flags |= pb.URDF_MERGE_FIXED_LINKS
+                try:
+                    self.uid = pb.loadURDF(
+                        model_path,
+                        position,
+                        orientation,
+                        globalScaling=scale,
+                        useFixedBase=int(force_fixed),
+                        flags=flags,
+                        physicsClientId=self._physics_client,
+                    )
+                except pb.error:
+                    raise RuntimeError(f"ERROR loading model: {model_path}")
+                force_fixed_considered = True
+            elif ending == "sdf":
+                tmp = pb.loadSDF(
+                    sdfFileName=model_path,
+                    globalScaling=scale,
+                    physicsClientId=self._physics_client,
+                )
+                assert len(tmp) == 1
+                self.uid = tmp[0]
+                pb.resetBasePositionAndOrientation(
+                    self.uid,
+                    posObj=position,
+                    ornObj=orientation,
+                    physicsClientId=self._physics_client,
+                )
+            # elif ending == "obj":
+            #     self.uid = add_mesh_object(
+            #         model_path, position, orientation, self._physics_client
+            #     )
+            else:
+                raise ValueError("Invalid model file ending.")
         self.name = pb.getBodyInfo(self.uid, physicsClientId=self._physics_client)
 
+        if not force_fixed_considered and force_fixed:
+            print("WARNING: ignored 'force_fixed' flag.")
+
+        self.link_name_to_index["base_link"] = -1
         for i in range(pb.getNumJoints(self.uid, physicsClientId=self._physics_client)):
             info = pb.getJointInfo(self.uid, i, physicsClientId=self._physics_client)
             name = info[12] if type(info[12]) is str else info[12].decode("utf-8")
             self.link_name_to_index[name] = i
 
     def remove(self):
-        pb.removeBody(self.uid, physicsClientId=self._physics_client)
+        if self.uid is not None:
+            pb.removeBody(self.uid, physicsClientId=self._physics_client)
+            self.uid = None
 
 
 class WorldPybullet(World):
@@ -103,9 +147,12 @@ class WorldPybullet(World):
         load_objects=True,
         savedir=None,
         include_floor=True,
+        enable_gui=False,
     ):
         super(WorldPybullet, self).__init__(sleep)
         self.include_floor = include_floor
+        self.enable_gui = enable_gui
+        self.style = style
         if not load_objects:
             assert savedir is not None
 
@@ -117,6 +164,8 @@ class WorldPybullet(World):
             self.client_id = pb.connect(pb.DIRECT)
         else:
             raise ValueError
+
+        self.plane_id = None
 
         if load_objects:
             pb.resetSimulation(physicsClientId=self.client_id)
@@ -131,18 +180,37 @@ class WorldPybullet(World):
 
     def basic_settings(self):
         pb.configureDebugVisualizer(
-            pb.COV_ENABLE_GUI, 0, physicsClientId=self.client_id
+            pb.COV_ENABLE_GUI, int(self.enable_gui), physicsClientId=self.client_id
         )
         pb.setAdditionalSearchPath(
             pybullet_data.getDataPath(), physicsClientId=self.client_id
         )
         pb.setGravity(0, 0, -9.81, physicsClientId=self.client_id)
         if self.include_floor:
-            pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
+            self.add_ground_plane()
 
-    def add_model(self, path, position, orientation, scale=1.0):
+    def add_ground_plane(self):
+        if self.plane_id is None:
+            self.plane_id = pb.loadURDF("plane.urdf", physicsClientId=self.client_id)
+
+    def remove_ground_plane(self):
+        if self.plane_id is not None:
+            pb.removeBody(self.plane_id, physicsClientId=self.client_id)
+            self.plane_id = None
+
+    def add_model(
+        self,
+        path,
+        position,
+        orientation,
+        scale=1.0,
+        merge_fixed_links=False,
+        force_fixed_base=False,
+    ):
         model = _Model(self.client_id)
-        model.load(path, position, orientation, scale)
+        model.load(
+            path, position, orientation, scale, merge_fixed_links, force_fixed_base
+        )
         return model
 
     def del_model(self, model):
@@ -167,6 +235,13 @@ class WorldPybullet(World):
         uid3 = pb.addUserDebugLine(start3, end3, color, width, lifetime)
         self.cross_uid = (uid1, uid2, uid3)
 
+    def capture_image(
+        self, path=None, show=False, camera_pos=(2, 2, 1), target_pos=(0, 0, 0)
+    ):
+        return capture_image_pybullet(
+            self.client_id, path, show, camera_pos, target_pos
+        )
+
     def draw_arrow(self, point, direction, color, length=0.2, replace_id=None):
         """ Accepts a point and a direction in world frame and draws it in the simulation """
         tip = point + direction / np.linalg.norm(direction) * length
@@ -181,16 +256,24 @@ class WorldPybullet(World):
                 width,
                 lifetime,
                 replaceItemUniqueId=replace_id,
+                physicsClientId=self.client_id,
             )
         else:
             arrow_id = pb.addUserDebugLine(
-                point.tolist(), tip.tolist(), color, width, lifetime
+                point.tolist(),
+                tip.tolist(),
+                color,
+                width,
+                lifetime,
+                physicsClientId=self.client_id,
             )
         return arrow_id
 
     def step_one(self):
         for frc in self.forces:
-            pb.applyExternalForce(frc[0], frc[1], frc[2], frc[3], frc[4])
+            pb.applyExternalForce(
+                frc[0], frc[1], frc[2], frc[3], frc[4], physicsClientId=self.client_id
+            )
         if self.velocity_setter is not None:
             self.velocity_setter()
         pb.stepSimulation(physicsClientId=self.client_id)
@@ -199,6 +282,7 @@ class WorldPybullet(World):
 
     def reset(self):
         pb.resetSimulation(physicsClientId=self.client_id)
+        self.plane_id = None
         self.basic_settings()
 
     def close(self):

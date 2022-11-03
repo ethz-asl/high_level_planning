@@ -8,13 +8,13 @@ from scipy.spatial.transform import Rotation as R
 
 
 class ScenePlanning1(SceneBase):
-    def __init__(self, world, base_dir, restored_objects=None):
-        SceneBase.__init__(self, world, base_dir, restored_objects)
+    def __init__(self, world, paths, restored_objects=None):
+        SceneBase.__init__(self, world, paths, restored_objects)
 
         if restored_objects is None:
             self.objects["table"] = ObjectInfo(
-                urdf_name_="table/table.urdf",
-                urdf_path_=os.path.join(base_dir, "table/table.urdf"),
+                urdf_path_="table/table.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([3.0, 0.0, 0.0]),
                 init_orient_=np.array([0.0, 0.0, 0.0, 1.0]),
             )
@@ -48,14 +48,14 @@ class ScenePlanning1(SceneBase):
                 },
             )
             self.objects["container1"] = ObjectInfo(
-                urdf_name_="container/container_no_lid.urdf",
-                urdf_path_=os.path.join(base_dir, "container/container_no_lid.urdf"),
+                urdf_path_="parsed_xacros/container_no_lid.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([3.5, -0.25, 0.625]),
                 init_orient_=np.array([0.0, 0.0, 0.0, 1.0]),
             )
             self.objects["lid1"] = ObjectInfo(
-                urdf_name_="container/lid.urdf",
-                urdf_path_=os.path.join(base_dir, "container/lid.urdf"),
+                urdf_path_="parsed_xacros/lid.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([3.5, -0.25, 0.775]),
                 init_orient_=np.array([0.0, 0.0, 0.0, 1.0]),
                 grasp_pos_={5: [np.array([0.0, 0.0, 0.0])]},
@@ -66,16 +66,14 @@ class ScenePlanning1(SceneBase):
                 friction_setting_=[{"link_name": "handle", "lateral_friction": 1.0}],
             )
             self.objects["container2"] = ObjectInfo(
-                urdf_name_="container/container_sliding_lid.urdf",
-                urdf_path_=os.path.join(
-                    base_dir, "container/container_sliding_lid.urdf"
-                ),
+                urdf_path_="container/container_sliding_lid.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([3.5, 0.25, 0.625]),
                 init_orient_=np.array([0.0, 0.0, 0.0, 1.0]),
             )
             self.objects["can"] = ObjectInfo(
-                urdf_name_="coke_can/model.sdf",
-                urdf_path_=os.path.join(base_dir, "coke_can/model.sdf"),
+                urdf_path_="coke_can/model.sdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([3.0, 0.25, 0.7]),
                 init_orient_=np.array([0.0, 0.0, 0.0, 1.0]),
                 init_scale_=0.8,
@@ -91,8 +89,8 @@ class ScenePlanning1(SceneBase):
                 grasp_links_=[-1],
             )
             self.objects["tall_box"] = ObjectInfo(
-                urdf_name_="tall_box.urdf",
-                urdf_path_=os.path.join(base_dir, "tall_box.urdf"),
+                urdf_path_="tall_box.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([2.8, 0.25, 0.7]),
                 init_orient_=R.from_euler("z", -20, degrees=True).as_quat(),
                 init_scale_=1.0,
@@ -109,15 +107,15 @@ class ScenePlanning1(SceneBase):
                 friction_setting_=[{"link_name": "body", "lateral_friction": 2.0}],
             )
             self.objects["shelf"] = ObjectInfo(
-                urdf_name_="shelf/shelf.urdf",
-                urdf_path_=os.path.join(base_dir, "shelf/shelf.urdf"),
+                urdf_path_="shelf/shelf.urdf",
+                urdf_relative_to_="asset_dir",
                 init_pos_=np.array([0.0, -1.5, 0.0]),
                 init_orient_=R.from_euler("z", 90, degrees=True).as_quat(),
                 nav_min_dist_=0.5,
                 nav_angle_=np.pi / 4.0,
             )
             self.objects["cupboard"] = get_cupboard_info(
-                base_dir, pos=[0.0, 1.5, 0.0], orient=[0.0, 0.0, 0.0, 1.0]
+                paths["asset_dir"], pos=[0.0, 1.5, 0.0], orient=[0.0, 0.0, 0.0, 1.0]
             )
 
             self.add_objects()

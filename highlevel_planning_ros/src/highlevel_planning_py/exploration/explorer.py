@@ -14,16 +14,15 @@ from highlevel_planning_py.exploration.exploration_tools import get_items_closeb
 from highlevel_planning_py.execution.es_sequential_execution import SequentialExecution
 
 
-class Explorer:
+class ExplorerBase:
     def __init__(
         self,
-        skill_set,
-        robot,
         scene_objects,
         pddl_extender,
         knowledge_base,
         config,
         world,
+        get_execution_system,
     ):
         self.config_params = config.getparam(["explorer"])
 
@@ -35,9 +34,6 @@ class Explorer:
         for rm_action in self.config_params["action_denylist"]:
             self.action_list.remove(rm_action)
 
-        self.skill_set = skill_set
-        self.robot = robot
-        self.robot_uid_ = robot.model.uid
         self.scene_objects = scene_objects
         self.pddl_extender = pddl_extender
         self.knowledge_base = knowledge_base
@@ -48,12 +44,17 @@ class Explorer:
         self.metrics_prefix = ""
         self.generalized_objects = dict()
 
+        self.get_execution_system = get_execution_system
+
     def set_metrics_prefix(self, prefix: str):
         self.metrics_prefix = prefix
         self.metrics[prefix] = OrderedDict()
 
     def add_metric(self, key: str, value):
         self.metrics[self.metrics_prefix][key] = value
+
+    def new_sequential_execution(self, seq, params):
+        raise NotImplementedError
 
     def exploration(
         self,
@@ -63,125 +64,7 @@ class Explorer:
         state_id=None,
         no_seed: bool = False,
     ):
-        exploration_start_time = time.time()
-        total_time_budget = self.config_params["search_budget_sec"]
-        total_time_budget_exceeded = False
-        self.metrics = OrderedDict()
-        self.knowledge_base.clear_temp()
-
-        self.metrics["config"] = self.config_params
-
-        if not no_seed:
-            np.random.seed(0)
-        sequences_tried = set()
-
-        # Save the state the robot is currently in
-        if state_id is None:
-            self.current_state_id = self.world.save_state()
-        else:
-            self.current_state_id = state_id
-            self.world.restore_state(state_id)
-
-        # Identify objects that are involved in reaching the goal
-        goal_objects = self._get_items_goal()
-        radii = self.config_params["radii"]
-
-        # Default closeby objects for demo, prepending and generalization exploration
-        closeby_objects = get_items_closeby(
-            goal_objects,
-            self.scene_objects,
-            self.world.client_id,
-            self.robot_uid_,
-            distance_limit=radii[0],
-        )
-
-        special_objects = {"goal": goal_objects, "closeby": closeby_objects}
-
-        res = False
-        if not planning_failed and not res and not total_time_budget_exceeded:
-            self.set_metrics_prefix("02_prepend")
-            tic = time.time()
-            time_budget = self.config_params["time_proportion_prepend"] * (
-                total_time_budget - (tic - exploration_start_time)
-            )
-            self.add_metric("time_budget", time_budget)
-            res = self._explore_prepending_sequence(
-                special_objects, sequences_tried, time_budget, tic
-            )
-            total_time = time.time() - tic
-            self.add_metric("total_time", total_time)
-            total_time_budget_exceeded = (
-                tic + total_time - exploration_start_time > total_time_budget
-            )
-        if not res and not total_time_budget_exceeded:
-            self.set_metrics_prefix("03_generalize")
-            tic = time.time()
-            time_budget = self.config_params["time_proportion_generalize"] * (
-                total_time_budget - (tic - exploration_start_time)
-            )
-            self.add_metric("time_budget", time_budget)
-            res = self._explore_generalized_action(
-                special_objects, sequences_tried, time_budget, tic
-            )
-            total_time = time.time() - tic
-            self.add_metric("total_time", total_time)
-            total_time_budget_exceeded = (
-                tic + total_time - exploration_start_time > total_time_budget
-            )
-        if (
-            not res
-            and demo_sequence is not None
-            and demo_parameters is not None
-            and not total_time_budget_exceeded
-        ):
-            self.set_metrics_prefix("01_demo")
-            self.add_metric("demo_sequence", demo_sequence)
-            self.add_metric("demo_parameters", demo_parameters)
-            tic = time.time()
-            time_budget = self.config_params["time_proportion_demo"] * (
-                total_time_budget - (tic - exploration_start_time)
-            )
-            self.add_metric("time_budget", time_budget)
-            res = self._explore_demonstration(
-                demo_sequence,
-                demo_parameters,
-                special_objects,
-                sequences_tried,
-                time_budget,
-            )
-            total_time = time.time() - tic
-            self.add_metric("total_time", total_time)
-            total_time_budget_exceeded = (
-                tic + total_time - exploration_start_time > total_time_budget
-            )
-        time_per_radius = (
-            total_time_budget - (time.time() - exploration_start_time)
-        ) / len(radii)
-        for radius in radii:
-            if not res and not total_time_budget_exceeded:
-                self.set_metrics_prefix(f"04_rad{radius}")
-                tic = time.time()
-                closeby_objects = get_items_closeby(
-                    goal_objects,
-                    self.scene_objects,
-                    self.world.client_id,
-                    self.robot_uid_,
-                    distance_limit=radius,
-                )
-                special_objects = {"goal": goal_objects, "closeby": closeby_objects}
-                time_left = total_time_budget - (tic - exploration_start_time)
-                time_budget = np.min([time_left, time_per_radius])
-                self.add_metric("time_budget", time_budget)
-                self.add_metric("special_objects", special_objects)
-                res = self._explore_goal_objects(
-                    sequences_tried, special_objects, time_budget
-                )
-                total_time = time.time() - tic
-                self.add_metric("total_time", total_time)
-                total_time_budget_exceeded = (
-                    tic + total_time - exploration_start_time > total_time_budget
-                )
-        return res, self.metrics
+        raise NotImplementedError
 
     # ----- Different sampling strategies ------------------------------------
 
@@ -271,6 +154,7 @@ class Explorer:
         print(f"Exploring generalizing action (budget: {time_budget}) ...")
 
         if len(self.knowledge_base.goals) > 1:
+            # TODO change this
             print("Generalization cannot deal with more than 1 goal right now.")
             return False
 
@@ -459,7 +343,7 @@ class Explorer:
             special_objects=special_objects,
         )
         if not success:
-            print("Sampling failed. Abort searching in this sequence length.")
+            # print("Sampling failed. Abort searching in this sequence length.")
             return found_plan
         counters["valid_sequences"][seq_len] += 1
 
@@ -748,6 +632,307 @@ class Explorer:
         return sequence
 
     def _sample_parameters(self, sequence, given_params=None, relevant_objects=None):
+        raise NotImplementedError
+
+    # ----- Other tools ------------------------------------
+
+    def _extract_goal_relevant_sequence(
+        self, sequence, parameters, fix_all_params: bool = False
+    ):
+        """
+
+        Args:
+            sequence:
+            parameters:
+            fix_all_params: If set to true, all parameters of an action that contributes to the goal are fix.
+                            If not, only the goal relevant parameters are fixed.
+
+        Returns:
+
+        """
+        # Extract parameters from plan
+        fixed_parameters_full = list()
+        for action_idx, action_name in enumerate(sequence):
+            action_description = self.knowledge_base.actions[action_name]
+            parameter_assignments = parameters[action_idx]
+            fixed_parameters_this_action = dict()
+            for effect in action_description["effects"]:
+                for goal in self.knowledge_base.goals:
+                    if goal[0] == effect[0] and goal[1] == effect[1]:
+                        goal_equals_effect = True
+                        for goal_param_idx, goal_param in enumerate(goal[2]):
+                            if (
+                                goal_param
+                                != parameter_assignments[effect[2][goal_param_idx]]
+                            ):
+                                goal_equals_effect = False
+                                break
+                        if goal_equals_effect:
+                            for effect_param_idx, effect_param in enumerate(effect[2]):
+                                if effect_param in fixed_parameters_this_action:
+                                    assert (
+                                        fixed_parameters_this_action[effect_param]
+                                        == goal[2][effect_param_idx]
+                                    )
+                                else:
+                                    fixed_parameters_this_action[effect_param] = goal[
+                                        2
+                                    ][effect_param_idx]
+            if fix_all_params and len(fixed_parameters_this_action) > 0:
+                for param in action_description["params"]:
+                    if param[0] not in fixed_parameters_this_action:
+                        fixed_parameters_this_action[param[0]] = parameter_assignments[
+                            param[0]
+                        ]
+            fixed_parameters_full.append(fixed_parameters_this_action)
+        assert len(fixed_parameters_full) == len(sequence)
+
+        # Determine which actions are goal relevant and remove the rest
+        relevant_parameters = list()
+        relevant_sequence = list()
+        for action_idx, action_name in enumerate(sequence):
+            if len(fixed_parameters_full[action_idx]) > 0:
+                relevant_parameters.append(fixed_parameters_full[action_idx])
+                relevant_sequence.append(action_name)
+        return relevant_sequence, relevant_parameters
+
+    def _get_items_goal(self, objects_only=False):
+        """
+        Get objects that are involved in the goal description
+        """
+        item_list = list()
+        for goal in self.knowledge_base.goals:
+            for arg in goal[2]:
+                if objects_only:
+                    if arg in self.scene_objects:
+                        item_list.append(arg)
+                else:
+                    item_list.append(arg)
+        return item_list
+
+    def _test_completed_sequence(self, completion_result):
+        # Restore initial state
+        self.world.restore_state(self.current_state_id)
+        success = np.array([0, 0, 0])
+        success_idx = None
+
+        time_execution = 0.0
+        time_goal_testing = 0.0
+
+        (
+            completed_sequence,
+            completed_parameters,
+            precondition_sequence,
+            precondition_parameters,
+            key_actions,
+        ) = completion_result
+
+        # Precondition sequence
+        es = self.new_sequential_execution(
+            precondition_sequence, precondition_parameters
+        )
+        es.setup()
+        for i in range(len(precondition_sequence)):
+            tic = time.time()
+            step_success, _, step_msgs = es.step(index=i)
+            toc = time.time()
+            time_execution += toc - tic
+            if not step_success:
+                return success, success_idx, (time_execution, time_goal_testing)
+            tic = toc
+            goal_success = self.knowledge_base.test_goals()
+            toc = time.time()
+            time_goal_testing += toc - tic
+            if goal_success:
+                success[0] = 1
+                success[2] = 1
+                success_idx = ("pre", i)
+                return success, success_idx, (time_execution, time_goal_testing)
+        success[0] = 1
+
+        # Main sequence
+        es = self.new_sequential_execution(completed_sequence, completed_parameters)
+        es.setup()
+        for i in range(len(completed_sequence)):
+            tic = time.time()
+            step_success, _, step_msgs = es.step(index=i)
+            toc = time.time()
+            time_execution += toc - tic
+            if not step_success:
+                return success, success_idx, (time_execution, time_goal_testing)
+            tic = toc
+            goal_success = self.knowledge_base.test_goals()
+            toc = time.time()
+            time_goal_testing += toc - tic
+            if goal_success:
+                success[2] = 1
+                success_idx = ("main", i)
+                break
+        success[1] = 1
+        return success, success_idx, (time_execution, time_goal_testing)
+
+
+class Explorer(ExplorerBase):
+    """
+    Stuff that is specific to the rearrangement task
+    """
+
+    def __init__(
+        self,
+        skill_set,
+        robot,
+        scene_objects,
+        pddl_extender,
+        knowledge_base,
+        config,
+        world,
+        get_execution_system,
+    ):
+        super(Explorer, self).__init__(
+            scene_objects,
+            pddl_extender,
+            knowledge_base,
+            config,
+            world,
+            get_execution_system,
+        )
+
+        self.skill_set = skill_set
+        self.robot = robot
+        self.robot_uid_ = robot.model.uid
+
+    def new_sequential_execution(self, seq, params):
+        return SequentialExecution(self.skill_set, seq, params, self.knowledge_base)
+
+    def exploration(
+        self,
+        planning_failed: bool,
+        demo_sequence=None,
+        demo_parameters=None,
+        state_id=None,
+        no_seed: bool = False,
+    ):
+        exploration_start_time = time.time()
+        total_time_budget = self.config_params["search_budget_sec"]
+        total_time_budget_exceeded = False
+        self.metrics = OrderedDict()
+        self.knowledge_base.clear_temp()
+
+        self.metrics["config"] = self.config_params
+
+        if not no_seed:
+            np.random.seed(0)
+        sequences_tried = set()
+
+        # Save the state the world is currently in
+        if state_id is None:
+            self.current_state_id = self.world.save_state()
+        else:
+            self.current_state_id = state_id
+            self.world.restore_state(state_id)
+
+        # Identify objects that are involved in reaching the goal
+        goal_objects = self._get_items_goal()
+        radii = self.config_params["radii"]
+
+        # Default closeby objects for demo, prepending and generalization exploration
+        closeby_objects = get_items_closeby(
+            goal_objects,
+            self.scene_objects,
+            self.world.client_id,
+            self.robot_uid_,
+            distance_limit=radii[0],
+        )
+
+        special_objects = {"goal": goal_objects, "closeby": closeby_objects}
+
+        res = False
+        if not planning_failed and not res and not total_time_budget_exceeded:
+            self.set_metrics_prefix("02_prepend")
+            tic = time.time()
+            time_budget = self.config_params["time_proportion_prepend"] * (
+                total_time_budget - (tic - exploration_start_time)
+            )
+            self.add_metric("time_budget", time_budget)
+            res = self._explore_prepending_sequence(
+                special_objects, sequences_tried, time_budget, tic
+            )
+            total_time = time.time() - tic
+            self.add_metric("total_time", total_time)
+            total_time_budget_exceeded = (
+                tic + total_time - exploration_start_time > total_time_budget
+            )
+        if not res and not total_time_budget_exceeded:
+            self.set_metrics_prefix("03_generalize")
+            tic = time.time()
+            time_budget = self.config_params["time_proportion_generalize"] * (
+                total_time_budget - (tic - exploration_start_time)
+            )
+            self.add_metric("time_budget", time_budget)
+            res = self._explore_generalized_action(
+                special_objects, sequences_tried, time_budget, tic
+            )
+            total_time = time.time() - tic
+            self.add_metric("total_time", total_time)
+            total_time_budget_exceeded = (
+                tic + total_time - exploration_start_time > total_time_budget
+            )
+        if (
+            not res
+            and demo_sequence is not None
+            and demo_parameters is not None
+            and not total_time_budget_exceeded
+        ):
+            self.set_metrics_prefix("01_demo")
+            self.add_metric("demo_sequence", demo_sequence)
+            self.add_metric("demo_parameters", demo_parameters)
+            tic = time.time()
+            time_budget = self.config_params["time_proportion_demo"] * (
+                total_time_budget - (tic - exploration_start_time)
+            )
+            self.add_metric("time_budget", time_budget)
+            res = self._explore_demonstration(
+                demo_sequence,
+                demo_parameters,
+                special_objects,
+                sequences_tried,
+                time_budget,
+            )
+            total_time = time.time() - tic
+            self.add_metric("total_time", total_time)
+            total_time_budget_exceeded = (
+                tic + total_time - exploration_start_time > total_time_budget
+            )
+        time_per_radius = (
+            total_time_budget - (time.time() - exploration_start_time)
+        ) / len(radii)
+        for radius in radii:
+            if not res and not total_time_budget_exceeded:
+                self.set_metrics_prefix(f"04_rad{radius}")
+                tic = time.time()
+                closeby_objects = get_items_closeby(
+                    goal_objects,
+                    self.scene_objects,
+                    self.world.client_id,
+                    self.robot_uid_,
+                    distance_limit=radius,
+                )
+                special_objects = {"goal": goal_objects, "closeby": closeby_objects}
+                time_left = total_time_budget - (tic - exploration_start_time)
+                time_budget = np.min([time_left, time_per_radius])
+                self.add_metric("time_budget", time_budget)
+                self.add_metric("special_objects", special_objects)
+                res = self._explore_goal_objects(
+                    sequences_tried, special_objects, time_budget
+                )
+                total_time = time.time() - tic
+                self.add_metric("total_time", total_time)
+                total_time_budget_exceeded = (
+                    tic + total_time - exploration_start_time > total_time_budget
+                )
+        return res, self.metrics
+
+    def _sample_parameters(self, sequence, given_params=None, relevant_objects=None):
         parameter_samples = list()
         parameter_samples_tuples = list()
 
@@ -888,148 +1073,3 @@ class Explorer:
         num_grasps = len(self.scene_objects[object_name].grasp_pos[link_id])
         grasp_idx = np.random.randint(num_grasps)
         return link_idx, grasp_idx
-
-    # ----- Other tools ------------------------------------
-
-    def _extract_goal_relevant_sequence(
-        self, sequence, parameters, fix_all_params: bool = False
-    ):
-        """
-
-        Args:
-            sequence:
-            parameters:
-            fix_all_params: If set to true, all parameters of an action that contributes to the goal are fix.
-                            If not, only the goal relevant parameters are fixed.
-
-        Returns:
-
-        """
-        # Extract parameters from plan
-        fixed_parameters_full = list()
-        for action_idx, action_name in enumerate(sequence):
-            action_description = self.knowledge_base.actions[action_name]
-            parameter_assignments = parameters[action_idx]
-            fixed_parameters_this_action = dict()
-            for effect in action_description["effects"]:
-                for goal in self.knowledge_base.goals:
-                    if goal[0] == effect[0] and goal[1] == effect[1]:
-                        goal_equals_effect = True
-                        for goal_param_idx, goal_param in enumerate(goal[2]):
-                            if (
-                                goal_param
-                                != parameter_assignments[effect[2][goal_param_idx]]
-                            ):
-                                goal_equals_effect = False
-                                break
-                        if goal_equals_effect:
-                            for effect_param_idx, effect_param in enumerate(effect[2]):
-                                if effect_param in fixed_parameters_this_action:
-                                    assert (
-                                        fixed_parameters_this_action[effect_param]
-                                        == goal[2][effect_param_idx]
-                                    )
-                                else:
-                                    fixed_parameters_this_action[effect_param] = goal[
-                                        2
-                                    ][effect_param_idx]
-            if fix_all_params and len(fixed_parameters_this_action) > 0:
-                for param in action_description["params"]:
-                    if param[0] not in fixed_parameters_this_action:
-                        fixed_parameters_this_action[param[0]] = parameter_assignments[
-                            param[0]
-                        ]
-            fixed_parameters_full.append(fixed_parameters_this_action)
-        assert len(fixed_parameters_full) == len(sequence)
-
-        # Determine which actions are goal relevant and remove the rest
-        relevant_parameters = list()
-        relevant_sequence = list()
-        for action_idx, action_name in enumerate(sequence):
-            if len(fixed_parameters_full[action_idx]) > 0:
-                relevant_parameters.append(fixed_parameters_full[action_idx])
-                relevant_sequence.append(action_name)
-        return relevant_sequence, relevant_parameters
-
-    def _get_items_goal(self, objects_only=False):
-        """
-        Get objects that are involved in the goal description
-        """
-        item_list = list()
-        for goal in self.knowledge_base.goals:
-            for arg in goal[2]:
-                if objects_only:
-                    if arg in self.scene_objects:
-                        item_list.append(arg)
-                else:
-                    item_list.append(arg)
-        return item_list
-
-    def _test_completed_sequence(self, completion_result):
-        # Restore initial state
-        self.world.restore_state(self.current_state_id)
-        success = np.array([0, 0, 0])
-        success_idx = None
-
-        time_execution = 0.0
-        time_goal_testing = 0.0
-
-        (
-            completed_sequence,
-            completed_parameters,
-            precondition_sequence,
-            precondition_parameters,
-            key_actions,
-        ) = completion_result
-
-        # Precondition sequence
-        es = SequentialExecution(
-            self.skill_set,
-            precondition_sequence,
-            precondition_parameters,
-            self.knowledge_base,
-        )
-        es.setup()
-        for i in range(len(precondition_sequence)):
-            tic = time.time()
-            step_success, _, step_msgs = es.step(index=i)
-            toc = time.time()
-            time_execution += toc - tic
-            if not step_success:
-                return success, success_idx, (time_execution, time_goal_testing)
-            tic = toc
-            goal_success = self.knowledge_base.test_goals()
-            toc = time.time()
-            time_goal_testing += toc - tic
-            if goal_success:
-                success[0] = 1
-                success[2] = 1
-                success_idx = ("pre", i)
-                return success, success_idx, (time_execution, time_goal_testing)
-        success[0] = 1
-
-        # Main sequence
-        es = SequentialExecution(
-            self.skill_set,
-            completed_sequence,
-            completed_parameters,
-            self.knowledge_base,
-        )
-        es.setup()
-        for i in range(len(completed_sequence)):
-            tic = time.time()
-            step_success, _, step_msgs = es.step(index=i)
-            toc = time.time()
-            time_execution += toc - tic
-            if not step_success:
-                return success, success_idx, (time_execution, time_goal_testing)
-            tic = toc
-            goal_success = self.knowledge_base.test_goals()
-            toc = time.time()
-            time_goal_testing += toc - tic
-            if goal_success:
-                success[2] = 1
-                success_idx = ("main", i)
-                break
-        success[1] = 1
-        return success, success_idx, (time_execution, time_goal_testing)

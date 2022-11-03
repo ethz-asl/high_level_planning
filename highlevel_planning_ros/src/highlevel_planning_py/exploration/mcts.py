@@ -1,4 +1,3 @@
-import pybullet as pb
 from time import time
 import numpy as np
 from collections import defaultdict
@@ -55,16 +54,17 @@ def plot_graph(graph, current_node, fig, ax, explorer):
         if node is current_node:
             color = "#ff0000"  # red
         elif node.own_action is not None:
-            if (
-                node.own_action[0][0] == "grasp"
-                and node.own_action[1][0]["obj"] == "tall_box"
-            ):
-                color = "#eaff80"  # light green
-            elif (
-                "nav" in node.own_action[0][0]
-                and node.own_action[1][0]["goal_pos"] == "shelf"
-            ):
-                color = "#00b300"  # dark green
+            # if (
+            #     node.own_action[0][0] == "grasp"
+            #     and node.own_action[1][0]["obj"] == "tall_box"
+            # ):
+            #     color = "#eaff80"  # light green
+            # elif (
+            #     "nav" in node.own_action[0][0]
+            #     and node.own_action[1][0]["goal_pos"] == "shelf"
+            # ):
+            #     color = "#00b300"  # dark green
+            pass
 
         if node.own_action is not None:
             labels[node] = node.own_action[0][0][0]
@@ -160,11 +160,8 @@ class HLPTreeSearch:
             current_node.backpropagate(result)
             # print("----------------------------------------------")
             # self.root.print()
-            print(
-                "Iteration {}. Current successes: {}".format(
-                    counter, self.root.results[1]
-                )
-            )
+            if counter % 100 == 0 or self.root.results[1] > 0:
+                print(f"Iteration {counter}. Current successes: {self.root.results[1]}")
 
         # Save metrics
         metrics["success"] = False if result == 0 else True
@@ -181,16 +178,21 @@ class HLPTreeNode:
         state,
         action_list,
         graph,
+        avoid_double_nav: bool,
         relevant_objects=None,
         parent=None,
         own_action=None,
         explorer=None,
+        virtual_objects=None,
+        pybullet_domain=False,
     ):
         self.state = state
         self.graph = graph
+        self.avoid_double_nav = avoid_double_nav
         self.parent = parent
         self.relevant_objects = relevant_objects
         self.own_action = own_action
+        self.pybullet_domain = pybullet_domain
 
         self.action_list = action_list
         self.children = list()
@@ -203,6 +205,12 @@ class HLPTreeNode:
         self.finite_space_actions = list()
         self.infinite_space_actions = list()
         self.feasible_navgoals = set()
+
+        if virtual_objects is None:
+            self.virtual_objects = []
+        else:
+            self.virtual_objects = virtual_objects
+
         self.determine_action_space(explorer)
 
         if self.parent is not None:
@@ -213,9 +221,12 @@ class HLPTreeNode:
 
         for action in self.action_list:
             # Skip nav action if the last action was already a nav action
-            if self.own_action is not None:
-                if "nav" in self.own_action[0][0] and "nav" in action:
-                    continue
+            if (
+                self.avoid_double_nav
+                and self.own_action is not None
+                and ("nav" in self.own_action[0][0] and "nav" in action)
+            ):
+                continue
 
             feasible_moves, pos_in_parameters = self.determine_feasible_action_params(
                 explorer, action
@@ -233,7 +244,7 @@ class HLPTreeNode:
         parameters = explorer.knowledge_base.actions[action]["params"]
         parameter_assignments = find_all_parameter_assignments(
             parameters,
-            self.relevant_objects + ["origin", "grasp0", "grasp1"],
+            set(self.relevant_objects + self.virtual_objects),
             explorer.knowledge_base,
         )
 
@@ -279,7 +290,7 @@ class HLPTreeNode:
         # Check which of them are feasible at the current state
         preconditions = explorer.knowledge_base.actions[action]["preconds"]
         for parameter_dict in parameter_dicts:
-            if "nav" in action:
+            if self.pybullet_domain and "nav" in action:
                 if (
                     parameter_dict["goal_pos"] in self.feasible_navgoals
                     or parameter_dict["goal_pos"] == parameter_dict["current_pos"]
@@ -303,7 +314,7 @@ class HLPTreeNode:
                     break
             sequence_tuple = ((action,), (parameter_dict,))
             if feasible and sequence_tuple not in self.child_actions:
-                if "nav" in action:
+                if self.pybullet_domain and "nav" in action:
                     self.feasible_navgoals.add(parameter_dict["goal_pos"])
                 feasible_moves.append(sequence_tuple)
         return feasible_moves, pos_in_parameters
@@ -361,6 +372,7 @@ class HLPTreeNode:
                 new_state,
                 self.action_list,
                 self.graph,
+                self.avoid_double_nav,
                 relevant_objects=self.relevant_objects,
                 parent=self,
                 own_action=sequence_tuple,
@@ -441,17 +453,14 @@ class HLPTreeNode:
 
 
 class HLPState:
-    def __init__(
-        self, success, depth, pb_client_id, explorer, predicate_specs, max_depth
-    ):
+    def __init__(self, success, depth, explorer, predicate_specs, max_depth):
         self._depth = depth
         self._max_depth = max_depth
 
-        # Save state
-        self._bullet_state = explorer.world.save_state()
-        self._bullet_client_id = pb_client_id
-        self.arm_state = explorer.robot.desired_arm
-        self.finger_state = explorer.robot.desired_fingers
+        self._state_id = explorer.world.save_state()
+        if hasattr(explorer, "robot"):
+            self.arm_state = explorer.robot.desired_arm
+            self.finger_state = explorer.robot.desired_fingers
 
         # Evaluate predicates
         self.predicate_specs = predicate_specs
@@ -477,23 +486,19 @@ class HLPState:
 
     def move(self, action, explorer):
         self.restore_state(explorer)
-        success = execute_plan_sequentially(
-            action[0], action[1], explorer.skill_set, explorer.knowledge_base
-        )
+
+        es = explorer.new_sequential_execution(action[0], action[1])
+        success = execute_plan_sequentially(es)
         new_state = HLPState(
-            success,
-            self._depth + 1,
-            self._bullet_client_id,
-            explorer,
-            self.predicate_specs,
-            self._max_depth,
+            success, self._depth + 1, explorer, self.predicate_specs, self._max_depth
         )
         return new_state
 
     def restore_state(self, explorer):
-        explorer.world.restore_state(self._bullet_state)
-        explorer.robot.set_joints(self.arm_state)
-        explorer.robot.set_fingers(self.finger_state)
+        explorer.world.restore_state(self._state_id)
+        if hasattr(explorer, "robot"):
+            explorer.robot.set_joints(self.arm_state)
+            explorer.robot.set_fingers(self.finger_state)
 
     def goal_reached(self, explorer):
         if self.goal_reached_cache is None:

@@ -6,12 +6,11 @@ from scipy.spatial.transform import Rotation as R
 import os
 
 
-def get_cupboard_info(base_dir, pos, orient):
-    urdf_file = "cupboard2/cupboard2.urdf"
+def get_cupboard_info(base_dir, pos, orient, scale=0.6, force_fixed_base=False):
+    urdf_file = "parsed_xacros/cupboard2.urdf"
     urdf = os.path.join(base_dir, urdf_file)
 
     world = WorldPybullet("direct", sleep=False)
-    scale = 0.6
     tmp_model = world.add_model(urdf, position=pos, orientation=orient, scale=scale)
 
     rot = R.from_quat(orient)
@@ -34,8 +33,8 @@ def get_cupboard_info(base_dir, pos, orient):
 
     grasp_orient = R.from_euler("xzy", [180, 0, -45], degrees=True)
     return ObjectInfo(
-        urdf_name_=urdf_file,
-        urdf_path_=urdf,
+        urdf_path_=urdf_file,
+        urdf_relative_to_="asset_dir",
         init_pos_=np.array(pos),
         init_orient_=np.array(orient),
         init_scale_=scale,
@@ -48,4 +47,5 @@ def get_cupboard_info(base_dir, pos, orient):
             {"jnt_idx": i, "mode": pb.VELOCITY_CONTROL, "force": 0.0}
             for i in drawer_joint_idx
         ],
+        force_fixed_base_=force_fixed_base,
     )

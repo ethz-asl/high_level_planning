@@ -26,7 +26,9 @@ class RobotArm(object):
         )
 
         # Set up IK solver
-        self.urdf_path = os.path.join(asset_dir, "box_panda_hand_pb.urdf")
+        self.urdf_path = os.path.join(
+            asset_dir, "parsed_xacros", "box_panda_hand_pb.urdf"
+        )
         with open(self.urdf_path) as f:
             if f.mode == "r":
                 urdf_string = f.read()

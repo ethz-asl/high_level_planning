@@ -51,7 +51,7 @@ def _preprocess_knowledge(
             for object_param_set in parameterizations[action_name]:
                 new_param_types = dict()
                 for object_param in object_param_set:
-                    new_type = "".join((object_param[1], "_", str(type_suffix)))
+                    new_type = "".join((object_param[1], "___", str(type_suffix)))
                     type_suffix += 1
                     add_type(types_processed, new_type, object_param[1])
                     add_object(objects_processed, object_param[2], new_type)
@@ -62,7 +62,7 @@ def _preprocess_knowledge(
                 for hidden_param_name in parameterizations[action_name][
                     object_param_set
                 ]:
-                    new_type = "".join((hidden_param_name, "_", str(type_suffix)))
+                    new_type = "".join((hidden_param_name, "___", str(type_suffix)))
                     type_suffix += 1
                     add_type(
                         types_processed, new_type, "position"
@@ -77,7 +77,7 @@ def _preprocess_knowledge(
                     for old_param_spec in action_descr["params"]
                 ]
 
-                new_action_name = "".join((action_name, "_", str(action_suffix)))
+                new_action_name = "".join((action_name, "___", str(action_suffix)))
                 action_suffix += 1
                 actions_processed[new_action_name] = {
                     "params": new_params,
@@ -98,12 +98,21 @@ def _preprocess_knowledge(
 
 
 class PDDLFileInterface:
-    def __init__(self, domain_dir, problem_dir=None, domain_name="", time_string=None):
+    def __init__(
+        self,
+        domain_dir,
+        problem_dir=None,
+        domain_name="",
+        time_string=None,
+        domain_file=None,
+        readonly: bool = False,
+    ):
         self._domain_dir = domain_dir
-        self._problem_dir = problem_dir
+        self._problem_dir = problem_dir if problem_dir is not None else domain_dir
         self._domain_name = domain_name
+        self._readonly = readonly
 
-        self.domain_file_pddl = None
+        self.domain_file_pddl = domain_file
         self.problem_file_pddl = None
         self._requirements = ":strips :typing"
 
@@ -124,6 +133,9 @@ class PDDLFileInterface:
         joker_objects=None,
         specific_generalized_objects=None,
     ):
+        if self._readonly:
+            raise RuntimeError("Trying to write from readonly class")
+
         if specific_generalized_objects is None:
             specific_generalized_objects = dict()
         (actions_processed, types_processed, object_processed) = _preprocess_knowledge(
@@ -142,6 +154,9 @@ class PDDLFileInterface:
         self.write_problem_pddl(object_processed, initial_predicates, goals)
 
     def write_domain_pddl(self, actions, predicates, types):
+        if self._readonly:
+            raise RuntimeError("Trying to write from readonly class")
+
         all_types_present = self.check_types(actions, types, predicates)
         if not all_types_present:
             raise ValueError("Not all types were defined properly")
@@ -355,6 +370,9 @@ class PDDLFileInterface:
         return predicates, actions, types
 
     def write_problem_pddl(self, objects, initial_predicates, goals):
+        if self._readonly:
+            raise RuntimeError("Trying to write from readonly class")
+
         pddl_str = ""
         pddl_str += "(define (problem chimera-auto-problem)\n"
 

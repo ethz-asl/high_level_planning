@@ -1,12 +1,9 @@
 import numpy as np
 import os
-import json
-import pickle
 import ast
 from datetime import datetime
 import networkx as nx
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 
 # Simulation
 # from highlevel_planning_py.sim.scene_planning_1 import ScenePlanning1
@@ -26,11 +23,12 @@ from highlevel_planning_py.knowledge.knowledge_base import KnowledgeBase
 
 # Other
 from highlevel_planning_py.tools.config import ConfigYaml
-from highlevel_planning_py.tools import run_util
+from highlevel_planning_py.tools import run_util, util, util_mcts
+from highlevel_planning_py.tools import util_pybullet
 
 from highlevel_planning_py.exploration.exploration_tools import get_items_closeby
 
-# mpl.use("TkAgg")
+mpl.use("TkAgg")
 
 # ----------------------------------------------------------------------
 
@@ -43,40 +41,9 @@ PATHS = {
 }
 
 
-def mcts_exit_handler(node, time_string, config, metrics, knowledge_base):
-    savedir = os.path.join(PATHS["data_dir"], "mcts")
-    os.makedirs(savedir, exist_ok=True)
-
-    figure, ax = plt.subplots()
-    mcts.plot_graph(node.graph, node, figure, ax, explorer=None)
-    filename = "{}_mcts_tree.png".format(time_string)
-    figure.savefig(os.path.join(savedir, filename))
-
-    data = dict()
-    data["tree"] = node
-    data["config"] = config._cfg
-    data["metrics"] = metrics
-    data["knowledge_base"] = knowledge_base
-
-    filename = "{}_data.pkl".format(time_string)
-    with open(os.path.join(savedir, filename), "wb") as f:
-        pickle.dump(data, f)
-
-    filename = "{}_metrics.txt".format(time_string)
-    with open(os.path.join(savedir, filename), "w") as f:
-        for key, value in metrics.items():
-            f.write(f"{key:42}: {value}\n")
-
-    filename = "{}_config.txt".format(time_string)
-    with open(os.path.join(savedir, filename), "w") as f:
-        json.dump(config._cfg, f)
-
-    print(f"Saved everything. Time string: {time_string}")
-
-
 def main():
     # Command line arguments
-    args = run_util.parse_arguments()
+    args = util.parse_arguments()
 
     # Seed RNGs
     if not args.no_seed:
@@ -88,7 +55,7 @@ def main():
 
     # Load existing simulation data if desired
     savedir = os.path.join(PATHS["data_dir"], "simulator")
-    objects, robot_mdl = run_util.restore_pybullet_sim(savedir, args)
+    objects, robot_mdl = util_pybullet.restore_pybullet_sim(savedir, args)
 
     # Load config file
     if len(args.config_file_path) == 0:
@@ -103,13 +70,13 @@ def main():
     # atexit.register(exit_handler, rep)
 
     # Populate simulation
-    scene, world = run_util.setup_pybullet_world(
-        ScenePlanning2, PATHS["asset_dir"], args, savedir, objects
+    scene, world = util_pybullet.setup_pybullet_world(
+        ScenePlanning2, PATHS, args, savedir, objects
     )
     robot = run_util.setup_robot(world, cfg, PATHS["asset_dir"], robot_mdl)
 
     # Save state
-    run_util.save_pybullet_sim(args, savedir, scene, robot)
+    util_pybullet.save_pybullet_sim(args, savedir, scene, robot)
 
     # -----------------------------------
 
@@ -165,15 +132,15 @@ def main():
     # Set up MCTS
     graph = nx.DiGraph()
     max_depth = cfg.getparam(["mcts", "max_depth"], default_value=10)
-    mcts_state = mcts.HLPState(
-        True, 0, world.client_id, xplorer, relevant_predicates, max_depth
-    )
+    mcts_state = mcts.HLPState(True, 0, xplorer, relevant_predicates, max_depth)
     mcts_root_node = mcts.HLPTreeNode(
         mcts_state,
         action_list,
         graph,
         relevant_objects=relevant_objects,
         explorer=xplorer,
+        virtual_objects=["origin", "grasp0", "grasp1"],
+        pybullet_domain=True,
     )
     mcts_search = mcts.HLPTreeSearch(mcts_root_node, xplorer, cfg)
 
@@ -184,7 +151,9 @@ def main():
 
     kb_clone = KnowledgeBase(PATHS, domain_name=scene.__class__.__name__)
     kb_clone.duplicate(kb)
-    mcts_exit_handler(mcts_root_node, time_string, cfg, metrics, kb_clone)
+    util_mcts.mcts_exit_handler(
+        mcts_root_node, time_string, cfg, metrics, kb_clone, PATHS
+    )
 
 
 if __name__ == "__main__":

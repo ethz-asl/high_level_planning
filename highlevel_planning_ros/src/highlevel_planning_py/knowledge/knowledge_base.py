@@ -1,6 +1,6 @@
 import pickle
 from copy import deepcopy
-from os import path, makedirs
+from os import path
 from highlevel_planning_py.pddl_interface.pddl_file_if import PDDLFileInterface
 from highlevel_planning_py.pddl_interface import planner_interface
 from highlevel_planning_py.exploration.logic_tools import (
@@ -8,11 +8,7 @@ from highlevel_planning_py.exploration.logic_tools import (
     measure_predicates,
 )
 from highlevel_planning_py.exploration.exploration_tools import get_items_closeby
-
-
-def check_path_exists(path_to_check):
-    if not path.isdir(path_to_check):
-        makedirs(path_to_check)
+from highlevel_planning_py.tools import util
 
 
 class KnowledgeBase:
@@ -21,14 +17,14 @@ class KnowledgeBase:
     ):
         self.predicate_funcs = None
 
-        # Folder book keeping
+        # Folder bookkeeping
         self.bin_dir = paths["bin_dir"]
         self.knowledge_dir = path.join(paths["data_dir"], "knowledge", domain_name)
         self.domain_dir = path.join(self.knowledge_dir, "main")
-        check_path_exists(self.domain_dir)
+        util.check_path_exists(self.domain_dir)
         problem_dir = self.domain_dir
         temp_domain_dir = path.join(self.knowledge_dir, "explore")
-        check_path_exists(temp_domain_dir)
+        util.check_path_exists(temp_domain_dir)
         temp_problem_dir = temp_domain_dir
 
         # Domain definition

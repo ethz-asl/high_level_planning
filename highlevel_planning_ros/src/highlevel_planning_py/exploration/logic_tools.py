@@ -171,7 +171,7 @@ def parse_plan(plan, actions):
     for plan_item in plan:
         plan_item_list = plan_item.split(" ")
         action_name = plan_item_list[1]
-        action_name = action_name.split("_")[0]
+        action_name = action_name.split("___")[0]
         if len(plan_item_list) > 2:
             action_parameters = plan_item_list[2:]
         else:
@@ -222,7 +222,7 @@ def determine_relevant_predicates(
     Determine all predicates of objects involved in this action and objects that are close to them
     """
     predicate_descriptions = knowledge_base.predicate_funcs.descriptions
-    relevant_predicates = list()
+    relevant_predicates = set()
     for pred in predicate_descriptions:
         if ignore_predicates is not None and pred in ignore_predicates:
             continue
@@ -234,8 +234,8 @@ def determine_relevant_predicates(
         )
 
         for parametrization in product(*parameter_assignments):
-            relevant_predicates.append((pred, parametrization))
-    return relevant_predicates
+            relevant_predicates.add((pred, parametrization))
+    return list(relevant_predicates)
 
 
 def measure_predicates(predicates, knowledge_base):

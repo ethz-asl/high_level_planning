@@ -1,5 +1,4 @@
 import numpy as np
-import pybullet as p
 from copy import deepcopy
 
 from highlevel_planning_py.execution.es_sequential_execution import (
@@ -34,12 +33,8 @@ def precondition_discovery(relevant_objects, completion_results, explorer):
     pre_predicates = measure_predicates(relevant_predicates, explorer.knowledge_base)
 
     # Execute the pre-condition sequence
-    res = execute_plan_sequentially(
-        precondition_sequence,
-        precondition_params,
-        explorer.skill_set,
-        explorer.knowledge_base,
-    )
+    es = explorer.get_execution_system(precondition_sequence, precondition_params)
+    res = execute_plan_sequentially(es)
     if not res:
         print("[precondition discovery] Failure during precondition sequence execution")
         return False
@@ -61,12 +56,8 @@ def precondition_discovery(relevant_objects, completion_results, explorer):
     # Execute actions one by one, check for non-effect predicate changes
     for idx, action in enumerate(completed_sequence):
         pre_predicates = deepcopy(current_predicates)
-        res = execute_plan_sequentially(
-            [action],
-            [completed_parameters[idx]],
-            explorer.skill_set,
-            explorer.knowledge_base,
-        )
+        es = explorer.get_execution_system([action], [completed_parameters[idx]])
+        res = execute_plan_sequentially(es)
         if not res:
             print(f"[precondition discovery] Failure during action {action}")
             return False
@@ -93,12 +84,12 @@ def precondition_discovery(relevant_objects, completion_results, explorer):
             ):
                 candidates_to_remove.append(idx)
 
-    # Filter out side effects of last action
+    # Filter side effects of last action
     for idx, action_idx in enumerate(precondition_actions):
         if action_idx == len(completed_sequence) - 1:
             candidates_to_remove.append(idx)
 
-    # Filter out side effects that get cancelled out again
+    # Filter side effects that get cancelled out again
     for idx, precondition in enumerate(precondition_candidates):
         opposite = (precondition[0], not precondition[1], precondition[2])
         try:
@@ -106,6 +97,14 @@ def precondition_discovery(relevant_objects, completion_results, explorer):
         except ValueError:
             continue
         candidates_to_remove.extend([idx, opposite_index])
+
+    # Remove duplicates
+    precondition_candidate_set = set()
+    for i in range(len(precondition_candidates)):
+        if precondition_candidates[i] in precondition_candidate_set:
+            candidates_to_remove.append(i)
+        else:
+            precondition_candidate_set.add(precondition_candidates[i])
 
     candidates_to_remove = list(set(candidates_to_remove))
     candidates_to_remove.sort(reverse=True)
@@ -131,7 +130,7 @@ def detect_predicate_changes(
     changed_indices = changed_indices[0]
     for idx in changed_indices:
         predicate_def = predicate_definitions[idx]
-        if (
+        if (len(explorer.config_params["predicate_precondition_allowlist"]) > 0) and (
             predicate_def[0]
             not in explorer.config_params["predicate_precondition_allowlist"]
         ):
@@ -143,10 +142,16 @@ def detect_predicate_changes(
         for action_idx, action in enumerate(action_sequence):
             action_descr = explorer.knowledge_base.actions[action]
             for effect in action_descr["effects"]:
+                effect_params = tuple(
+                    [
+                        action_parameters[action_idx][param_name]
+                        for param_name in effect[2]
+                    ]
+                )
                 if (
                     effect[0] == predicate_def[0]
                     and effect[1] == predicate_state
-                    and effect[2] == action_parameters[action_idx]
+                    and effect_params == predicate_def[1]
                 ):
                     predicate_expected = True
                     break

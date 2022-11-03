@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<robot name="mobile_panda" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="mopa" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <material name="dark_grey">
     <color rgba="0.2 0.2 0.2 1.0"/>
-  </material>  
+  </material>
 
   <link name="base_box"/>
   <joint name="base_link_joint" type="fixed">
@@ -31,17 +31,27 @@
     </collision>
   </link>
 
-  <xacro:include filename="$(find franka_description)/robots/utils.xacro" />
-  <xacro:include filename="$(find franka_description)/robots/panda_gazebo.xacro"/>
-
-  <xacro:panda_arm arm_id="panda"/>
-  <joint name="panda_joint_ridgeback_dummy" type="fixed">
-    <parent link="ridgeback_dummy"/>
-    <child link="panda_link0"/>
-    <origin rpy="0 0 0" xyz="0.2 0 0.35"/>
-  </joint>
-
-  <xacro:hand ns="panda" rpy="0 0 ${-pi/4}" connected_to="panda_link8"/>
+  <xacro:include filename="$(find franka_description)/robots/common/utils.xacro" />
+  <xacro:include filename="$(find franka_description)/robots/common/franka_arm.xacro" />
+  <xacro:include filename="$(find franka_description)/robots/common/franka_hand.xacro"/>
+  <xacro:franka_arm
+      arm_id="panda"
+      safety_distance="0.03"
+      gazebo="true"
+      joint_limits="${xacro.load_yaml('$(find franka_description)/robots/panda/joint_limits.yaml')}"
+      connected_to="ridgeback_dummy"
+      xyz="0.2 0 0.35"
+      rpy="0 0 0"
+  />
+  <xacro:franka_hand
+      arm_id="panda"
+      rpy="0 0 ${-pi/4}"
+      tcp_xyz="0 0 0.1034"
+      tcp_rpy="0 0 0"
+      connected_to="panda_link8"
+      safety_distance="0.03"
+      gazebo="true"
+   />
   
   <!-- Add EE frame -->
   <link name="panda_default_EE">
