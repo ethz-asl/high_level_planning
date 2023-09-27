@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Förster"
+  given-names: "Julian"
+  orcid: "https://orcid.org/0000-0002-1163-1065"
+- family-names: "Ott"
+  given-names: "Lionel"
+- family-names: "Nieto"
+  given-names: "Juan"
+  orcid: "https://orcid.org/0000-0003-4808-0831"
+- family-names: "Lawrance"
+  given-names: "Nicholas"
+  orcid: "https://orcid.org/0000-0003-2167-7427"
+- family-names: "Siegwart"
+  given-names: "Roland"
+- family-names: "Chung"
+  given-names: "Jen Jen"
+  orcid: "https://orcid.org/0000-0001-7828-0741"
+title: "Automatic extension of a symbolic mobile manipulation skill set - Code Release"
+version: 1.0.0
+// doi:
+date-released: 2022-02-25
+url: "https://github.com/ethz-asl/high_level_planning"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Förster"
+    given-names: "Julian"
+    orcid: "https://orcid.org/0000-0002-1163-1065"
+  - family-names: "Ott"
+    given-names: "Lionel"
+  - family-names: "Nieto"
+    given-names: "Juan"
+    orcid: "https://orcid.org/0000-0003-4808-0831"
+  - family-names: "Lawrance"
+    given-names: "Nicholas"
+    orcid: "https://orcid.org/0000-0003-2167-7427"
+  - family-names: "Siegwart"
+    given-names: "Roland"
+  - family-names: "Chung"
+    given-names: "Jen Jen"
+    orcid: "https://orcid.org/0000-0001-7828-0741"
+  doi: "https://doi.org/10.1016/j.robot.2023.104428"
+  journal: "Robotics and Autonomous Systems"
+  month: 7
+  start: 104428 # First page number
+  // end: 10 # Last page number
+  title: "Automatic extension of a symbolic mobile manipulation skill set"
+  volume: 165
+  year: 2023
