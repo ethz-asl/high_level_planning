@@ -1,6 +1,6 @@
 pybullet==3.2.5
 numpy==1.23.4
-scipy==1.9.3
+scipy==1.10.0
 urdf-parser-py
 pandas==1.5.1
 argparse
